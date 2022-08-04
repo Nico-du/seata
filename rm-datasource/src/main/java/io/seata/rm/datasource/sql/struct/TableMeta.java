@@ -17,14 +17,15 @@ package io.seata.rm.datasource.sql.struct;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import io.seata.common.exception.NotSupportYetException;
 import io.seata.common.util.CollectionUtils;
+import io.seata.common.util.LowerCaseLinkHashMap;
 import io.seata.rm.datasource.ColumnUtils;
 
 /**
@@ -38,11 +39,12 @@ public class TableMeta {
     /**
      * key: column name
      */
-    private Map<String, ColumnMeta> allColumns = new LinkedHashMap<String, ColumnMeta>();
+    private final Map<String, ColumnMeta> allColumns = new LowerCaseLinkHashMap<>();
+
     /**
      * key: index name
      */
-    private Map<String, IndexMeta> allIndexes = new LinkedHashMap<String, IndexMeta>();
+    private final Map<String, IndexMeta> allIndexes = new LowerCaseLinkHashMap<>();
 
     /**
      * Gets table name.
@@ -112,19 +114,15 @@ public class TableMeta {
      * @return the primary key map
      */
     public Map<String, ColumnMeta> getPrimaryKeyMap() {
-        Map<String, ColumnMeta> pk = new HashMap<String, ColumnMeta>();
-        for (Entry<String, IndexMeta> entry : allIndexes.entrySet()) {
-            IndexMeta index = entry.getValue();
+        Map<String, ColumnMeta> pk = new HashMap<>();
+        allIndexes.forEach((key, index) -> {
             if (index.getIndextype().value() == IndexType.PRIMARY.value()) {
                 for (ColumnMeta col : index.getValues()) {
                     pk.put(col.getColumnName(), col);
                 }
             }
-        }
+        });
 
-        if (pk.size() > 1) {
-            throw new NotSupportYetException(String.format("%s contains multi PK, but current not support.", tableName));
-        }
         if (pk.size() < 1) {
             throw new NotSupportYetException(String.format("%s needs to contain the primary key.", tableName));
         }
@@ -147,21 +145,22 @@ public class TableMeta {
     }
 
     /**
-     * Gets pk name.
+     * Gets all the on update columns only name.
      *
-     * @return the pk name
+     * @return all the on update columns only name
      */
-    public String getPkName() {
-        return getPrimaryKeyOnlyName().get(0);
+    public List<String> getOnUpdateColumnsOnlyName() {
+        return allColumns.values().stream().filter(ColumnMeta::isOnUpdate).map(ColumnMeta::getColumnName).collect(Collectors.toList());
     }
 
     /**
      * Gets add escape pk name.
-     * @param dbType
-     * @return
+     *
+     * @param dbType the db type
+     * @return escape pk name list
      */
-    public String getEscapePkName(String dbType) {
-        return ColumnUtils.addEscape(getPkName(), dbType);
+    public List<String> getEscapePkNameList(String dbType) {
+        return ColumnUtils.addEscape(getPrimaryKeyOnlyName(), dbType);
     }
 
     /**
@@ -180,6 +179,8 @@ public class TableMeta {
             return false;
         }
 
+
+        //at least contain one pk
         if (cols.containsAll(pk)) {
             return true;
         } else {

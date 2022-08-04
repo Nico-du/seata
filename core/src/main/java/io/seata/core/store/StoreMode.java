@@ -30,7 +30,12 @@ public enum StoreMode {
     /**
      * database store
      */
-    DB("db");
+    DB("db"),
+
+    /**
+     * redis store
+     */
+    REDIS("redis");
 
     private String name;
 
@@ -56,4 +61,17 @@ public enum StoreMode {
         throw new IllegalArgumentException("unknown store mode:" + name);
     }
 
+    /**
+     * whether contains value of store mode
+     * @param name the mode name
+     * @return the boolean
+     */
+    public static boolean contains(String name) {
+        try {
+            return get(name) != null ? true : false;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+    
 }

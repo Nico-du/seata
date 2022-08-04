@@ -24,12 +24,13 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>seata-discovery-zk</artifactId>
     <name>seata-discovery-zk ${project.version}</name>
+    <description>discovery-zookeeper for Seata built with Maven</description>
 
     <dependencies>
         <dependency>
             <groupId>io.seata</groupId>
             <artifactId>seata-discovery-core</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.101tec</groupId>

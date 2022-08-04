@@ -20,12 +20,17 @@ import io.seata.core.exception.TransactionExceptionCode;
 import io.seata.core.model.BranchType;
 import io.seata.core.model.ResourceManager;
 import io.seata.rm.DefaultResourceManager;
-import io.seata.rm.datasource.exec.LockConflictException;
 import io.seata.rm.datasource.exec.LockWaitTimeoutException;
+import io.seata.rm.datasource.mock.MockConnection;
+import io.seata.rm.datasource.mock.MockDriver;
+import io.seata.rm.datasource.sql.struct.Row;
+import io.seata.rm.datasource.sql.struct.TableRecords;
 import io.seata.rm.datasource.undo.SQLUndoLog;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnJre;
+import org.junit.jupiter.api.condition.JRE;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
@@ -36,6 +41,7 @@ import java.lang.reflect.Modifier;
  *
  * @author ggndnn
  */
+@DisabledOnJre(JRE.JAVA_17) // `ReflectionUtil.modifyStaticFinalField` does not supported java17
 public class ConnectionProxyTest {
     private DataSourceProxy dataSourceProxy;
 
@@ -61,7 +67,7 @@ public class ConnectionProxyTest {
         Mockito.when(dataSourceProxy.getResourceId())
                 .thenReturn(TEST_RESOURCE_ID);
         ResourceManager rm = Mockito.mock(ResourceManager.class);
-        Mockito.when(rm.branchRegister(BranchType.AT, dataSourceProxy.getResourceId(), null, TEST_XID, null, lockKey))
+        Mockito.when(rm.branchRegister(BranchType.AT, dataSourceProxy.getResourceId(), null, TEST_XID, "{\"autoCommit\":false}", lockKey))
                 .thenThrow(new TransactionException(TransactionExceptionCode.LockKeyConflict));
         DefaultResourceManager defaultResourceManager = DefaultResourceManager.get();
         Assertions.assertNotNull(defaultResourceManager);
@@ -72,11 +78,16 @@ public class ConnectionProxyTest {
     public void testLockRetryPolicyRollbackOnConflict() throws Exception {
         boolean oldBranchRollbackFlag = (boolean) branchRollbackFlagField.get(null);
         branchRollbackFlagField.set(null, true);
-        ConnectionProxy connectionProxy = new ConnectionProxy(dataSourceProxy, null);
+        ConnectionProxy connectionProxy = new ConnectionProxy(dataSourceProxy, new MockConnection(new MockDriver(), "", null));
         connectionProxy.bind(TEST_XID);
+        SQLUndoLog sqlUndoLog = new SQLUndoLog();
+        TableRecords beforeImage = new TableRecords();
+        beforeImage.add(new Row());
+        sqlUndoLog.setBeforeImage(beforeImage);
+        connectionProxy.getContext().appendUndoItem(sqlUndoLog);
         connectionProxy.appendUndoLog(new SQLUndoLog());
         connectionProxy.appendLockKey(lockKey);
-        Assertions.assertThrows(LockConflictException.class, connectionProxy::commit);
+        Assertions.assertThrows(LockWaitTimeoutException.class, connectionProxy::commit);
         branchRollbackFlagField.set(null, oldBranchRollbackFlag);
     }
 
@@ -88,6 +99,11 @@ public class ConnectionProxyTest {
         connectionProxy.bind(TEST_XID);
         connectionProxy.appendUndoLog(new SQLUndoLog());
         connectionProxy.appendLockKey(lockKey);
+        SQLUndoLog sqlUndoLog = new SQLUndoLog();
+        TableRecords beforeImage = new TableRecords();
+        beforeImage.add(new Row());
+        sqlUndoLog.setBeforeImage(beforeImage);
+        connectionProxy.getContext().appendUndoItem(sqlUndoLog);
         Assertions.assertThrows(LockWaitTimeoutException.class, connectionProxy::commit);
         branchRollbackFlagField.set(null, oldBranchRollbackFlag);
     }

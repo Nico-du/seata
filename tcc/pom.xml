@@ -27,6 +27,7 @@
     <artifactId>seata-tcc</artifactId>
     <packaging>jar</packaging>
     <name>seata-tcc ${project.version}</name>
+    <description>tcc transaction mode for Seata built with Maven</description>
 
     <dependencies>
         <dependency>
@@ -38,6 +39,10 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>seata-rm</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
